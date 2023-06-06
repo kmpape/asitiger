@@ -1,6 +1,6 @@
 import re
 import time
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Tuple, Union
 
 from asitiger.axis import Axis
 from asitiger.command import Command
@@ -80,6 +80,13 @@ class TigerController:
         return self.secure(
             {"X": SecurePosition.resolve_value(position)}, card_address=card_address
         )
+
+    def get_stage_limits_mum(self) -> Tuple[Dict[str, float], Dict[str, float]]:
+        lower_lim = {key: self._cast_number(val)*1000.0
+                     for key, val in self._dict_from_response(self.send_command('SL X? Y? Z?')).items()}
+        upper_lim = {key: self._cast_number(val)*1000.0
+                     for key, val in self._dict_from_response(self.send_command('SU X? Y? Z?')).items()}
+        return lower_lim, upper_lim
 
     # The methods below map directly onto the Tiger serial API methods
 
