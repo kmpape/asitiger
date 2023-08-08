@@ -56,6 +56,9 @@ class TigerController:
     # The methods below are higher-level convenience methods that
     # don't necessarily map directly onto supported serial commands
 
+    def filter_wheel(self, position: int, card_address: int = 8):
+        self.send_command(Command.format(Command.FW.format(position), card_address=card_address))
+
     def axes(self, card_address: int = None) -> List[Axis.AxisInfo]:
         return Axis.get_axes_from_build(self.build(card_address=card_address))
 

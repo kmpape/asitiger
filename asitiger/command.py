@@ -6,6 +6,7 @@ LOGGER = logging.getLogger("asitiger.command")
 
 class Command:
     BUILD = "BU"
+    FW = "MP {}"  # Added
     HALT = "\\"
     HERE = "H"
     HOME = "!"
