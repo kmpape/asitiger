@@ -9,6 +9,7 @@ from asitiger.secure import SecurePosition
 from asitiger.serialconnection import SerialConnection
 from asitiger.status import AxisStatus, Status, statuses_for_rdstat
 
+SAFE_STAGE_LIMITS = {'X': (-450000, 9800), 'Y': (-150000, 427000), 'Z': (-77000, 9800)}
 
 class TigerController:
 
@@ -120,8 +121,16 @@ class TigerController:
             Command.format(Command.MOTCTRL, axes_states, flag_overrides=["+", "-"])
         )
 
-    def move(self, coordinates: Dict[str, float]):
-        return self.send_command(Command.format(Command.MOVE, coordinates=coordinates))
+    def move(self, coordinates: Dict[str, float]) -> Union[str, Errors.ParameterOutOfRangeError]:
+        """
+        See http://asiimaging.com/docs/commands/um
+        Position is specified in 1/10 of um, i.e. X=1234 means 123.4 microns
+        """
+        if any((key not in SAFE_STAGE_LIMITS) or (val < SAFE_STAGE_LIMITS[key][0]) or (val > SAFE_STAGE_LIMITS[key][1])
+               for key, val in coordinates.items()):
+            return Errors.ParameterOutOfRangeError()
+        else:
+            return self.send_command(Command.format(Command.MOVE, coordinates=coordinates))
 
     def move_relative(self, offsets: Dict[str, float]):
         return self.send_command(Command.format(Command.MOVREL, coordinates=offsets))
