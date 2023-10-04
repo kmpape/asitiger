@@ -1,15 +1,18 @@
+import logging
 import re
 import time
 from typing import Any, Dict, List, Tuple, Union
 
 from asitiger.axis import Axis
-from asitiger.command import Command
+from asitiger.command import Command, CRISPState
 from asitiger.errors import Errors
 from asitiger.secure import SecurePosition
 from asitiger.serialconnection import SerialConnection
 from asitiger.status import AxisStatus, Status, statuses_for_rdstat
 
 SAFE_STAGE_LIMITS = {'X': (-450000, 9800), 'Y': (-150000, 427000), 'Z': (-77000, 9800)}
+
+LOGGER = logging.getLogger("asitiger.tigercontroller")
 
 class TigerController:
 
@@ -43,6 +46,30 @@ class TigerController:
             return int(number_str)
         except ValueError:
             return float(number_str)
+
+    @staticmethod
+    def _cast_float(value_str: str) -> Union[float, None]:
+        pattern = r'^:A\s+'
+        try:
+            value = float(re.sub(pattern, '', value_str))
+        except ValueError:
+            value = None
+            LOGGER.warning(
+                f'String "{value_str}" cannot be converted to float. Returning None instead.'
+            )
+        return value
+
+    @staticmethod
+    def _cast_int(value_str: str) -> Union[int, None]:
+        pattern = r'^:A\s+'
+        try:
+            value = int(re.sub(pattern, '', value_str))
+        except ValueError:
+            value = None
+            LOGGER.warning(
+                f'String "{value_str}" cannot be converted to int. Returning None instead.'
+            )
+        return value
 
     @staticmethod
     def _dict_from_response(
@@ -168,3 +195,104 @@ class TigerController:
 
     def who(self) -> List[str]:
         return self.send_command(Command.WHO).split("\r")
+
+    # The methods below are CRISP autofocus functions (set_xxx first, get_xxx below)
+
+    def crisp_get_set_cal_range(self, card_address: int, value: Union[float, None]) -> str:
+        return self.send_command(Command.format_crisp(Command.CRISP_CAL_RANGE, card_address, value))
+
+    def crisp_get_set_led_intensity(self, card_address: int, value: Union[int, None]) -> Union[str, int]:
+        if value is not None:
+            return self.send_command(Command.format_crisp(Command.CRISP_LED, card_address, value))
+        else:
+            pattern = r'^[^0-9]*([0-9]+).*'
+            return self._cast_int(
+                re.sub(pattern, r'\1', self.send_command(Command.format_crisp(Command.CRISP_LED, card_address, value)))
+            )
+
+    def crisp_get_set_lock_range(self, card_address: int, value: Union[float, None]) -> Union[str, float]:
+        if value is not None:
+            return self.send_command(Command.format_crisp(Command.CRISP_LOCK_RANGE, card_address, value))
+        else:
+            pattern = r':A Z=([0-9]+\.[0-9]+)'
+            return self._cast_float(re.sub(
+                pattern,
+                r'\1',
+                self.send_command(Command.format_crisp(Command.CRISP_LOCK_RANGE, card_address, value))
+            ))
+
+    def crisp_get_set_loop_gain(self, card_address: int, value: Union[int, None]) -> Union[str, int]:
+        if value is not None:
+            return self.send_command(Command.format_crisp(Command.CRISP_LOOP_GAIN, card_address, value))
+        else:  # Need some hacking here as ASI returns a float instead of an integer
+            pattern = r':A T=([0-9]+\.[0-9]+)'
+            return int(float(re.sub(
+                pattern,
+                r'\1',
+                self.send_command(Command.format_crisp(Command.CRISP_LOOP_GAIN, card_address, value))))
+            )
+
+    def crisp_get_set_num_avg(self, card_address: int, value: Union[int, None]) -> Union[str, int]:
+        if value is not None:
+            return self.send_command(Command.format_crisp(Command.CRISP_NUM_AVG, card_address, value))
+        else:  # Need some hacking here as ASI returns a float instead of an integer
+            pattern = r':A F=([0-9]+\.[0-9]+)'
+            return int(float(re.sub(
+                pattern,
+                r'\1',
+                self.send_command(Command.format_crisp(Command.CRISP_NUM_AVG, card_address, value))))
+            )
+
+    def crisp_get_set_objective_na(self, card_address: int, value: Union[float, None]) -> Union[str, float]:
+        pattern = r'^[^0-9]*([0-9]+\.[0-9]+).*'
+        if value is not None:
+            return self.send_command(Command.format_crisp(Command.CRISP_NA, card_address, value))
+        else:
+            return self._cast_float(re.sub(
+                pattern,
+                r'\1',
+                self.send_command(Command.format_crisp(Command.CRISP_NA, card_address, value))
+            ))
+
+    def crisp_get_set_state(self, card_address: int, value: Union[CRISPState, None]) -> str:
+        pattern = r'^:A\s+'
+        if value == CRISPState.UNLOCK:
+            return re.sub(
+                pattern,
+                '',
+                self.send_command(f"{card_address}{Command.CRISP_UNLOCK}")
+            )
+        else:
+            this_command = Command.CRISP_SET_STATE if value else Command.CRISP_GET_STATE
+            return re.sub(
+                pattern,
+                '',
+                self.send_command(Command.format_crisp(this_command, card_address, value))
+            )
+
+    def crisp_get_set_update_rate(self, card_address: int, value: Union[int, None]) -> Union[str, int]:
+        if value is not None:
+            return self.send_command(Command.format_crisp(Command.CRISP_UPDATE_RATE, card_address, value))
+        else:
+            pattern = r'^[^0-9]*([0-9]+).*'
+            return self._cast_int(re.sub(
+                pattern,
+                r'\1',
+                self.send_command(Command.format_crisp(Command.CRISP_UPDATE_RATE, card_address, value)))
+            )
+
+    def crisp_get_agc(self, card_address: int) -> str:
+        return self.send_command(Command.format_crisp(Command.CRISP_AGC, card_address, None))
+
+    def crisp_get_snr(self, card_address: int) -> float:
+        return self._cast_float(
+            self.send_command(Command.format_crisp(Command.CRISP_SNR, card_address, None))
+        )
+
+    def crisp_get_sum(self, card_address: int) -> str:
+        return self.send_command(Command.format_crisp(Command.CRISP_SUM, card_address, None))
+
+    def crisp_get_err(self, card_address: int) -> int:
+        return self._cast_int(
+            self.send_command(Command.format_crisp(Command.CRISP_ERROR_NUM, card_address, None))
+        )
