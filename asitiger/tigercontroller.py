@@ -10,7 +10,7 @@ from asitiger.secure import SecurePosition
 from asitiger.serialconnection import SerialConnection
 from asitiger.status import AxisStatus, Status, statuses_for_rdstat
 
-SAFE_STAGE_LIMITS = {'X': (-450000, 9800), 'Y': (-150000, 427000), 'Z': (-77000, 9800)}
+SAFE_STAGE_LIMITS = {'X': (-160000, 350000), 'Y': (-250000, 110000), 'Z': (-7700, 9800)}
 
 LOGGER = logging.getLogger("asitiger.tigercontroller")
 
@@ -155,9 +155,8 @@ class TigerController:
         """
         if any((key not in SAFE_STAGE_LIMITS) or (val < SAFE_STAGE_LIMITS[key][0]) or (val > SAFE_STAGE_LIMITS[key][1])
                for key, val in coordinates.items()):
-            return Errors.ParameterOutOfRangeError()
-        else:
-            return self.send_command(Command.format(Command.MOVE, coordinates=coordinates))
+            raise Errors.ParameterOutOfRangeError()
+        return self.send_command(Command.format(Command.MOVE, coordinates=coordinates))
 
     def move_relative(self, offsets: Dict[str, float]):
         return self.send_command(Command.format(Command.MOVREL, coordinates=offsets))
