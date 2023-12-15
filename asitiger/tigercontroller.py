@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+import threading
 from typing import Any, Dict, List, Tuple, Union
 
 from asitiger.axis import Axis
@@ -10,7 +11,7 @@ from asitiger.secure import SecurePosition
 from asitiger.serialconnection import SerialConnection
 from asitiger.status import AxisStatus, Status, statuses_for_rdstat
 
-SAFE_STAGE_LIMITS = {'X': (-160000, 350000), 'Y': (-250000, 110000), 'Z': (-7700, 9800)}
+SAFE_STAGE_LIMITS = {'X': (-190000, 190000), 'Y': (-65000, 65000), 'Z': (-7700, 9800)}
 
 LOGGER = logging.getLogger("asitiger.tigercontroller")
 
@@ -22,9 +23,14 @@ class TigerController:
         self,
         serial_connection: SerialConnection,
         poll_interval_s: float = DEFAULT_POLL_INTERVAL_S,
+        stage_limits: Dict[str, Tuple[int, int]] = SAFE_STAGE_LIMITS,
     ):
         self.connection = serial_connection
         self.poll_interval_s = poll_interval_s
+        if not all(ax in stage_limits.keys() for ax in ['X', 'Y', 'Z']):
+            raise Errors.MissingParametersError("Missing keys in stage limits. Returning.")
+        self.stage_limits = stage_limits
+        self._lock = threading.RLock()
 
     @classmethod
     def from_serial_port(
@@ -33,8 +39,9 @@ class TigerController:
         return cls(SerialConnection(port, baud_rate), *tiger_args, **tiger_kwargs)
 
     def send_command(self, command: str) -> str:
-        self.connection.send_command(command)
-        response = self.connection.read_response()
+        with self._lock:
+            self.connection.send_command(command)
+            response = self.connection.read_response()
 
         Errors.raise_error_if_present(command, response)
 
@@ -112,12 +119,10 @@ class TigerController:
             {"X": SecurePosition.resolve_value(position)}, card_address=card_address
         )
 
-    def get_stage_limits_mum(self) -> Tuple[Dict[str, float], Dict[str, float]]:
-        lower_lim = {key: self._cast_number(val)*1000.0
-                     for key, val in self._dict_from_response(self.send_command('SL X? Y? Z?')).items()}
-        upper_lim = {key: self._cast_number(val)*1000.0
-                     for key, val in self._dict_from_response(self.send_command('SU X? Y? Z?')).items()}
-        return lower_lim, upper_lim
+    def set_stage_limits(self, stage_limits: Dict[str, Tuple[int, int]]):
+        if not all(ax in stage_limits.keys() for ax in ['X', 'Y', 'Z']):
+            raise Errors.MissingParametersError("Missing keys in stage limits. Returning.")
+        self.stage_limits = stage_limits
 
     # The methods below map directly onto the Tiger serial API methods
 
@@ -133,7 +138,9 @@ class TigerController:
     def here(self, coordinates: Dict[str, float]) -> str:
         return self.send_command(Command.format(Command.HERE, coordinates=coordinates))
 
-    def home(self, axes: List[str]) -> str:
+    def home(self, axes: Union[List[str], None] = None) -> str:
+        if axes is None:
+            axes = ['X', 'Y', 'Z']
         return self.send_command(f"{Command.HOME} {' '.join(axes)}")
 
     def led(self, led_brightnesses: Dict[str, int], card_address: int = None):
@@ -148,13 +155,18 @@ class TigerController:
             Command.format(Command.MOTCTRL, axes_states, flag_overrides=["+", "-"])
         )
 
+    def coordinate_is_out_of_bounds(self, coordinates: Dict[str, float]) -> bool:
+        return any((key not in self.stage_limits) or
+                   (val < self.stage_limits[key][0]) or
+                   (val > self.stage_limits[key][1])
+                   for key, val in coordinates.items())
+
     def move(self, coordinates: Dict[str, float]) -> Union[str, Errors.ParameterOutOfRangeError]:
         """
         See http://asiimaging.com/docs/commands/um
         Position is specified in 1/10 of um, i.e. X=1234 means 123.4 microns
         """
-        if any((key not in SAFE_STAGE_LIMITS) or (val < SAFE_STAGE_LIMITS[key][0]) or (val > SAFE_STAGE_LIMITS[key][1])
-               for key, val in coordinates.items()):
+        if self.coordinate_is_out_of_bounds(coordinates):
             raise Errors.ParameterOutOfRangeError()
         return self.send_command(Command.format(Command.MOVE, coordinates=coordinates))
 
@@ -184,7 +196,9 @@ class TigerController:
     def status(self) -> Status:
         return Status(self.send_command(Command.STATUS))
 
-    def where(self, axes: List[str]) -> dict:
+    def where(self, axes: Union[List[str], None] = None) -> dict:
+        if axes is None:
+            axes = ['X', 'Y', 'Z']
         response = self.send_command(f"{Command.WHERE} {' '.join(axes)}")
         coordinates = response.split(" ")[1:]
 
@@ -194,6 +208,9 @@ class TigerController:
 
     def who(self) -> List[str]:
         return self.send_command(Command.WHO).split("\r")
+
+    def zero(self) -> str:
+        return self.send_command(f"{Command.ZERO}")
 
     # The methods below are CRISP autofocus functions (set_xxx first, get_xxx below)
 

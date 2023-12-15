@@ -47,6 +47,7 @@ class Command:
     STATUS = "/"
     WHERE = "W"
     WHO = "WHO"
+    ZERO = "Z"
 
     _NUMERAL_MAX_LENGTH = 16
 
