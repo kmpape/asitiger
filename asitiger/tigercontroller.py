@@ -15,6 +15,7 @@ SAFE_STAGE_LIMITS = {'X': (-190000, 190000), 'Y': (-65000, 65000), 'Z': (-7700, 
 
 LOGGER = logging.getLogger("asitiger.tigercontroller")
 
+
 class TigerController:
 
     DEFAULT_POLL_INTERVAL_S = 0.01
@@ -23,13 +24,13 @@ class TigerController:
         self,
         serial_connection: SerialConnection,
         poll_interval_s: float = DEFAULT_POLL_INTERVAL_S,
-        stage_limits: Dict[str, Tuple[int, int]] = SAFE_STAGE_LIMITS,
+        stage_limits: Union[None, Dict[str, Tuple[int, int]]] = SAFE_STAGE_LIMITS,
     ):
         self.connection = serial_connection
         self.poll_interval_s = poll_interval_s
         if not all(ax in stage_limits.keys() for ax in ['X', 'Y', 'Z']):
             raise Errors.MissingParametersError("Missing keys in stage limits. Returning.")
-        self.stage_limits = stage_limits
+        self._stage_limits = stage_limits
         self._lock = threading.RLock()
 
     @classmethod
@@ -122,7 +123,7 @@ class TigerController:
     def set_stage_limits(self, stage_limits: Dict[str, Tuple[int, int]]):
         if not all(ax in stage_limits.keys() for ax in ['X', 'Y', 'Z']):
             raise Errors.MissingParametersError("Missing keys in stage limits. Returning.")
-        self.stage_limits = stage_limits
+        self._stage_limits = stage_limits
 
     # The methods below map directly onto the Tiger serial API methods
 
@@ -156,10 +157,10 @@ class TigerController:
         )
 
     def coordinate_is_out_of_bounds(self, coordinates: Dict[str, float]) -> bool:
-        return any((key not in self.stage_limits) or
-                   (val < self.stage_limits[key][0]) or
-                   (val > self.stage_limits[key][1])
-                   for key, val in coordinates.items())
+        return False if self._stage_limits is None else any((key not in self._stage_limits) or
+                                                            (val < self._stage_limits[key][0]) or
+                                                            (val > self._stage_limits[key][1])
+                                                            for key, val in coordinates.items())
 
     def move(self, coordinates: Dict[str, float]) -> Union[str, Errors.ParameterOutOfRangeError]:
         """
