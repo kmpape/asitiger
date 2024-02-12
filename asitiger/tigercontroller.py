@@ -120,10 +120,13 @@ class TigerController:
             {"X": SecurePosition.resolve_value(position)}, card_address=card_address
         )
 
+    def get_stage_limits(self) -> Dict[str, Tuple[int, int]]:
+        return {key: val for key, val in self._stage_limits.items()}
+
     def set_stage_limits(self, stage_limits: Dict[str, Tuple[int, int]]):
         if not all(ax in stage_limits.keys() for ax in ['X', 'Y', 'Z']):
-            raise Errors.MissingParametersError("Missing keys in stage limits. Returning.")
-        self._stage_limits = stage_limits
+            raise Errors.MissingParametersError(f"Missing keys in stage limits: {stage_limits}. Returning.")
+        self._stage_limits = {key: val for key, val in stage_limits.items()}
 
     # The methods below map directly onto the Tiger serial API methods
 
