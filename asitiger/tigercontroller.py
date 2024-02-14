@@ -128,6 +128,18 @@ class TigerController:
             raise Errors.MissingParametersError(f"Missing keys in stage limits: {stage_limits}. Returning.")
         self._stage_limits = {key: val for key, val in stage_limits.items()}
 
+    def set_stage_limits_relative(self, relative_limits: Dict[str, int]):
+        curr_pos = self.where()
+        new_stage_limits = self.get_stage_limits()
+        for key in relative_limits.keys():
+            if relative_limits[key] > 0:
+                raise Errors.ParameterOutOfRangeError(
+                    f"TigerController.set_stage_limits_relative: Relative limits must be positive. "
+                    f"Received {relative_limits}."
+                )
+            new_stage_limits[key] = (curr_pos[key] - relative_limits[key], curr_pos[key] + relative_limits[key])
+        self.set_stage_limits(stage_limits=new_stage_limits)
+
     # The methods below map directly onto the Tiger serial API methods
 
     def build(self, card_address: int = None) -> List[str]:
@@ -171,6 +183,8 @@ class TigerController:
         Position is specified in 1/10 of um, i.e. X=1234 means 123.4 microns
         """
         if self.coordinate_is_out_of_bounds(coordinates):
+            LOGGER.warning(f"TigerController.move: Coordinates {coordinates} are outside of admissible range"
+                           f"({self._stage_limits}). ")
             raise Errors.ParameterOutOfRangeError()
         return self.send_command(Command.format(Command.MOVE, coordinates=coordinates))
 

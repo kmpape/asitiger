@@ -1,5 +1,5 @@
 import logging
-from asitiger import tigercontroller
+from asitiger import tigercontroller, tigerthread
 
 # Do not process log messages by default
 # Leave it up to the app developer to consume log messages if desired
