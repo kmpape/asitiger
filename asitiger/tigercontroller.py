@@ -1,37 +1,40 @@
 import logging
+from multiprocessing import Event
 import re
 import time
 import threading
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from asitiger.axis import Axis
 from asitiger.command import Command, CRISPState
 from asitiger.errors import Errors
 from asitiger.secure import SecurePosition
 from asitiger.serialconnection import SerialConnection
-from asitiger.status import AxisStatus, Status, statuses_for_rdstat
+from asitiger.status import AxisStatus, CRISPStatus, Status, statuses_for_rdstat
 
-SAFE_STAGE_LIMITS = {'X': (-190000, 190000), 'Y': (-65000, 65000), 'Z': (-7700, 9800)}
+SAFE_STAGE_LIMITS = {'X': (-65000, 65000), 'Y': (-190000, 190000), 'Z': (-9000, 9800)}
 
 LOGGER = logging.getLogger("asitiger.tigercontroller")
 
 
 class TigerController:
 
-    DEFAULT_POLL_INTERVAL_S = 0.01
+    DEFAULT_POLL_INTERVAL_S = 0.001
 
     def __init__(
         self,
         serial_connection: SerialConnection,
         poll_interval_s: float = DEFAULT_POLL_INTERVAL_S,
         stage_limits: Union[None, Dict[str, Tuple[int, int]]] = SAFE_STAGE_LIMITS,
+        stop_event: Union[Event, None] = None,
     ):
-        self.connection = serial_connection
-        self.poll_interval_s = poll_interval_s
+        self.connection: SerialConnection = serial_connection
+        self.poll_interval_s: float = poll_interval_s
         if not all(ax in stage_limits.keys() for ax in ['X', 'Y', 'Z']):
             raise Errors.MissingParametersError("Missing keys in stage limits. Returning.")
-        self._stage_limits = stage_limits
-        self._lock = threading.RLock()
+        self._stage_limits: Union[None, Dict[str, Tuple[int, int]]] = stage_limits
+        self._lock: threading.RLock = threading.RLock()
+        self._stop_event: Union[Event, None] = stop_event
 
     @classmethod
     def from_serial_port(
@@ -47,6 +50,18 @@ class TigerController:
         Errors.raise_error_if_present(command, response)
 
         return response
+
+    def sleep(
+            self,
+            duration: float,
+    ):
+        now = time.perf_counter()
+        end = now + duration
+        while (now < end) and (self._stop_event is None or (not self.stopped())):
+            now = time.perf_counter()
+
+    def stopped(self) -> bool:
+        return self._stop_event.is_set()
 
     @staticmethod
     def _cast_number(number_str: str):
@@ -95,17 +110,20 @@ class TigerController:
     def filter_wheel(self, position: int, card_address: int = 8):
         self.send_command(Command.format(Command.FW.format(position), card_address=card_address))
 
-    def axes(self, card_address: int = None) -> List[Axis.AxisInfo]:
+    def axes(self, card_address: Optional[int] = None) -> List[Axis.AxisInfo]:
         return Axis.get_axes_from_build(self.build(card_address=card_address))
 
-    def is_busy(self) -> bool:
-        return self.status() is Status.BUSY
+    def is_busy(self, card_address_crisp: Optional[int] = None) -> bool:
+        if card_address_crisp is None:
+            return self.status() is Status.BUSY
+        else:
+            return self.status() is Status.BUSY or self.status_crisp(card_address_crisp) is CRISPStatus.OUT_OF_FOCUS
 
-    def wait_until_idle(self, poll_interval_s: float = None):
+    def wait_until_idle(self, poll_interval_s: float = None, card_address_crisp: Optional[int] = None):
         poll_interval_s = poll_interval_s if poll_interval_s else self.poll_interval_s
 
-        while self.is_busy():
-            time.sleep(poll_interval_s)
+        while self.is_busy(card_address_crisp=card_address_crisp):
+            self.sleep(poll_interval_s)
 
     def enable_axes(self, axes: List[str]):
         self.motor_control({axis: "+" for axis in axes})
@@ -213,6 +231,9 @@ class TigerController:
 
     def status(self) -> Status:
         return Status(self.send_command(Command.STATUS))
+
+    def status_crisp(self, card_address: int) -> CRISPStatus:
+        return CRISPStatus(self.crisp_get_set_state(card_address=card_address, value=None))
 
     def where(self, axes: Union[List[str], None] = None) -> dict:
         if axes is None:
@@ -330,3 +351,6 @@ class TigerController:
         return self._cast_int(
             self.send_command(Command.format_crisp(Command.CRISP_ERROR_NUM, card_address, None))
         )
+
+    def crisp_reset_offset(self, card_address: int) -> str:
+        return self.crisp_get_set_state(card_address=card_address, value=CRISPState.SET_OFFSET)

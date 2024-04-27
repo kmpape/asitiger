@@ -15,6 +15,22 @@ class Status(Enum):
         return Status(status_flag)
 
 
+class CRISPStatus(Enum):
+    IDLE = "I"
+    READY = "R"
+    DIM = "D"
+    OUT_OF_FOCUS = "K"
+    IN_FOCUS = "F"
+    INHIBIT = "N"
+    ERROR = "E"
+    LOG_CAL = "G"
+
+    @classmethod
+    def from_flag(cls, status_flag: Union[str, int]):
+        if isinstance(status_flag, int):
+            return cls.IDLE if status_flag == 0 else cls.BUSY
+        return Status(status_flag)
+
 class AxisEnabledStatus(Enum):
     DISABLED = 0
     ENABLED = 1

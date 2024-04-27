@@ -12,8 +12,9 @@ class CRISPState:
     READY = 85        # LED on - @ button locks
     SET_GAIN = 67     # Calibration Step 4
     SET_OFFSET = 111  # Reset focus offset
+    OUT_OF_FOCUS = 83
     UNLOCK = -1       # Unlock Focus
-    str2state = {'I': IDLE, 'R': READY, 'G': LOG_CAL, 'F': LOCK}
+    str2state = {'I': IDLE, 'R': READY, 'G': LOG_CAL, 'F': LOCK, 'K': OUT_OF_FOCUS}
 
 
 class Command:
