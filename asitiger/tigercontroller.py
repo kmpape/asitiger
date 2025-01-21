@@ -177,6 +177,11 @@ class TigerController:
             axes = ['X', 'Y', 'Z']
         return self.send_command(f"{Command.HOME} {' '.join(axes)}")
 
+    def info(self, axis: str) -> str:
+        if axis.upper() not in ['X', 'Y', 'Z']:
+            raise Errors.UnrecognizedAxisParameterError()
+        return self.send_command(f"{Command.INFO} {axis.upper()}")
+
     def led(self, led_brightnesses: Dict[str, int], card_address: int = None):
         self.send_command(
             Command.format(

@@ -37,6 +37,7 @@ class Command:
     HALT = "\\"
     HERE = "H"
     HOME = "!"
+    INFO = "I"
     LED = "LED"
     MOTCTRL = "MC"
     MOVE = "M"

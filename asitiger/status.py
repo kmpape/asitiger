@@ -16,20 +16,25 @@ class Status(Enum):
 
 
 class CRISPStatus(Enum):
-    IDLE = "I"
-    READY = "R"
-    DIM = "D"
-    OUT_OF_FOCUS = "K"
-    IN_FOCUS = "F"
-    INHIBIT = "N"
-    ERROR = "E"
-    LOG_CAL = "G"
+    IDLE = "I"              # LED is tuned off going from Ready to Idle
+    READY = "R"             # LED on
+    DIM = "D"               # Low returned light signal (prevents Ready state)
+    OUT_OF_FOCUS = "K"      # Active but not within focus tolerance
+    IN_FOCUS = "F"          # Active and within focus tolerance
+    INHIBIT = "N"           # Low returned signal (unlocks system)
+    ERROR = "E"             # Usually Out-of-Range Error
+    LOG_CAL = "G"           # Initiate basic Log-Amp Calibration
 
     @classmethod
-    def from_flag(cls, status_flag: Union[str, int]):
+    def from_flag(cls, status_flag: Union[str, int]) -> 'CRISPStatus':
         if isinstance(status_flag, int):
             return cls.IDLE if status_flag == 0 else cls.BUSY
-        return Status(status_flag)
+        return CRISPStatus(status_flag)
+
+    @classmethod
+    def get_locked_state_flags(cls) -> list[str]:
+        return [cls.IN_FOCUS.value, cls.OUT_OF_FOCUS.value]
+
 
 class AxisEnabledStatus(Enum):
     DISABLED = 0
