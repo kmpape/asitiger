@@ -5,6 +5,7 @@ LOGGER = logging.getLogger("asitiger.command")
 
 
 class CRISPState:
+    FOCUS_CURVE = 97  # Generate focus curve
     DITHER = 102      # Calibration Step 3
     IDLE = 79         # Calibration Step 1, LED is tuned off going from Ready to Idle
     LOCK = 83         # Focus Lock

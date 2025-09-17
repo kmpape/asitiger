@@ -47,6 +47,7 @@ class Errors:
         "6": UndefinedError,
         "7": InvalidCardAddressException,
         "21": SerialCommandHaltedError,
+        "30": UnknownError,
     }
 
     @classmethod

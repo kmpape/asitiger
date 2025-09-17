@@ -12,7 +12,7 @@ from asitiger.secure import SecurePosition
 from asitiger.serialconnection import SerialConnection
 from asitiger.status import AxisStatus, CRISPStatus, Status, statuses_for_rdstat
 
-SAFE_STAGE_LIMITS = {'X': (-65000, 65000), 'Y': (-190000, 190000), 'Z': (-9000, 9800)}
+SAFE_STAGE_LIMITS = {'X': (-80000, 80000), 'Y': (-190000, 190000), 'Z': (-10000, 10000)}
 
 LOGGER = logging.getLogger("asitiger.tigercontroller")
 
