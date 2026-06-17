@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+from asitiger.status import CRISPStatus
 from asitiger.tigercontroller import TigerController
 
 
@@ -42,3 +43,10 @@ def test_send_command(tiger):
 
     with pytest.raises(Exception):
         tiger.send_command("Nice")
+
+
+def test_status_crisp_maps_out_of_focus_flag(tiger):
+    """Check LOCK X returned K maps to the CRISP OUT_OF_FOCUS status."""
+    tiger.connection.read_response.return_value = ":A K"
+
+    assert tiger.status_crisp(card_address=3) == CRISPStatus.OUT_OF_FOCUS

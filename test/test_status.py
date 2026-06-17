@@ -6,6 +6,7 @@ from asitiger.status import (
     MotorStatus,
     RampingDirection,
     RampingStatus,
+    CRISPStatus,
     Status,
     status_from_decimal,
     statuses_for_rdstat,
@@ -57,3 +58,9 @@ def test_statuses_for_rdstat_types():
 def test_from_flag_str():
     assert Status.from_flag("N") == Status.IDLE
     assert Status.from_flag("B") == Status.BUSY
+
+
+def test_crisp_status_focus_flags():
+    """Check CRISP status flags represent returned LOCK X focus states."""
+    assert CRISPStatus.OUT_OF_FOCUS.value == "K"
+    assert CRISPStatus.IN_FOCUS.value == "F"

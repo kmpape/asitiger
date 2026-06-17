@@ -6,7 +6,7 @@ import threading
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from asitiger.axis import Axis
-from asitiger.command import Command, CRISPState
+from asitiger.command import Command, CRISPSetState
 from asitiger.errors import Errors
 from asitiger.secure import SecurePosition
 from asitiger.serialconnection import SerialConnection
@@ -314,9 +314,9 @@ class TigerController:
                 self.send_command(Command.format_crisp(Command.CRISP_NA, card_address, value))
             ))
 
-    def crisp_get_set_state(self, card_address: int, value: Union[CRISPState, None]) -> str:
+    def crisp_get_set_state(self, card_address: int, value: Union[CRISPSetState, None]) -> str:
         pattern = r'^:A\s+'
-        if value == CRISPState.UNLOCK:
+        if value == CRISPSetState.UNLOCK:
             return re.sub(
                 pattern,
                 '',
@@ -358,4 +358,4 @@ class TigerController:
         )
 
     def crisp_reset_offset(self, card_address: int) -> str:
-        return self.crisp_get_set_state(card_address=card_address, value=CRISPState.SET_OFFSET)
+        return self.crisp_get_set_state(card_address=card_address, value=CRISPSetState.SET_OFFSET)

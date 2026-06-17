@@ -1,10 +1,19 @@
 import logging
+from enum import IntEnum
 from typing import Dict, List, Union
 
 LOGGER = logging.getLogger("asitiger.command")
 
 
-class CRISPState:
+class CRISPSetState(IntEnum):
+    """
+    CRISP set-state codes sent with the LOCK F argument.
+
+    Values are ASCII decimal codes for the CRISP state character used by the
+    ASI LOCK command, for example LOCK F=83 for the S/lock state. Runtime
+    status flags returned by LOCK X? are represented by CRISPStatus.
+    """
+
     FOCUS_CURVE = 97  # Generate focus curve
     DITHER = 102      # Calibration Step 3
     IDLE = 79         # Calibration Step 1, LED is tuned off going from Ready to Idle
@@ -13,9 +22,7 @@ class CRISPState:
     READY = 85        # LED on - @ button locks
     SET_GAIN = 67     # Calibration Step 4
     SET_OFFSET = 111  # Reset focus offset
-    OUT_OF_FOCUS = 83
     UNLOCK = -1       # Unlock Focus
-    str2state = {'I': IDLE, 'R': READY, 'G': LOG_CAL, 'F': LOCK, 'K': OUT_OF_FOCUS}
 
 
 class Command:
@@ -109,7 +116,7 @@ class Command:
         cls,
         command: str,
         card_address: int,
-        value: Union[None, int, float, str] = None,
+        value: Union[None, int, float, str, CRISPSetState] = None,
     ):
         if isinstance(value, float) and len(str(value)) > cls._NUMERAL_MAX_LENGTH:
             truncated_value = str(value)[: cls._NUMERAL_MAX_LENGTH]

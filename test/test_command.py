@@ -1,4 +1,4 @@
-from asitiger.command import Command
+from asitiger.command import CRISPSetState, Command
 
 
 def test_format_coordinate_number():
@@ -48,3 +48,8 @@ def test_format_empty_coords():
 
 def test_format_card_address():
     assert Command.format("CMD", {}, card_address=123) == "123CMD"
+
+
+def test_format_crisp_set_state_lock():
+    """Check CRISP set-state values are sent through the LOCK F argument."""
+    assert Command.format_crisp(Command.CRISP_SET_STATE, 3, CRISPSetState.LOCK) == "3LK F=83"
